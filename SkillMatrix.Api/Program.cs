@@ -1,11 +1,19 @@
+using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SkillMatrix.Api.Data;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Render assigns a port via the PORT environment variable and routes traffic to it.
+// Without this, requests never reach the app - which looks like a CORS error in the
+// browser, because no response (and so no CORS header) ever comes back.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Database (Neon Postgres)
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -29,15 +37,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// CORS for the React dev server / hosted frontend
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("AllowFrontend", policy =>
-//        policy.WithOrigins(
-//                builder.Configuration["FrontendUrl"] ?? "http://localhost:5173")
-//              .AllowAnyHeader()
-//              .AllowAnyMethod());
-//});
+// CORS for the Vercel-hosted frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -49,9 +49,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Render terminates HTTPS and forwards plain http to the container; trust that
+// header so generated URLs (photo links) come out as https instead of http.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -82,17 +90,19 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseForwardedHeaders();
 
-//app.UseHttpsRedirection();
+// Swagger stays available in production too, since this is a small internal app
+// and it's useful for checking things directly against the live API.
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseStaticFiles(); // serves wwwroot/uploads/* (photo files) at /uploads/*
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/health", () => Results.Ok("ok")); // quick way to check the service is actually reachable
 app.MapControllers();
 
 app.Run();
