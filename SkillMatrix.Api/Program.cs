@@ -30,13 +30,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // CORS for the React dev server / hosted frontend
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowFrontend", policy =>
+//        policy.WithOrigins(
+//                builder.Configuration["FrontendUrl"] ?? "http://localhost:5173")
+//              .AllowAnyHeader()
+//              .AllowAnyMethod());
+//});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins(
-                builder.Configuration["FrontendUrl"] ?? "http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod());
+    {
+        policy
+            .WithOrigins("https://skilled-matrix.vercel.app")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
 });
 
 builder.Services.AddControllers();
@@ -78,7 +88,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseStaticFiles(); // serves wwwroot/uploads/* (photo files) at /uploads/*
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
