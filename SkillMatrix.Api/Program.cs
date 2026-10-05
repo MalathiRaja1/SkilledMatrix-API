@@ -43,7 +43,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins("https://skilled-matrix.vercel.app")
+             .WithOrigins(
+                "https://skilled-matrix.vercel.app",
+                "http://localhost:5173",
+                "http://localhost:3000"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -96,7 +100,6 @@ app.UseForwardedHeaders();
 // and it's useful for checking things directly against the live API.
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseStaticFiles(); // serves wwwroot/uploads/* (photo files) at /uploads/*
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

@@ -17,14 +17,67 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Photo> Photos => Set<Photo>();
 
+    // Business-code max length for every string that is a primary key, a foreign key,
+    // or otherwise indexed. SQL Server (unlike Postgres) refuses to index an
+    // unbounded nvarchar(max) column, so every one of these needs an explicit length
+    // or `dotnet ef database update` fails with "column ... is invalid for use as a
+    // key column in an index".
+    private const int CodeLength = 20;
+
     protected override void OnModelCreating(ModelBuilder b)
     {
-        b.Entity<Department>().HasKey(x => x.DeptCode);
-        b.Entity<Area>().HasKey(x => x.AreaCode);
-        b.Entity<WorkStation>().HasKey(x => x.WorkStationCode);
-        b.Entity<Contractor>().HasKey(x => x.ContractorId);
-        b.Entity<Eaton>().HasKey(x => x.EatonId);
-        b.Entity<Employee>().HasKey(x => x.EmpId);
+        b.Entity<Department>(e =>
+        {
+            e.HasKey(x => x.DeptCode);
+            e.Property(x => x.DeptCode).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<Area>(e =>
+        {
+            e.HasKey(x => x.AreaCode);
+            e.Property(x => x.AreaCode).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<WorkStation>(e =>
+        {
+            e.HasKey(x => x.WorkStationCode);
+            e.Property(x => x.WorkStationCode).HasMaxLength(CodeLength);
+            e.Property(x => x.AreaCode).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<Contractor>(e =>
+        {
+            e.HasKey(x => x.ContractorId);
+            e.Property(x => x.ContractorId).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<Eaton>(e =>
+        {
+            e.HasKey(x => x.EatonId);
+            e.Property(x => x.EatonId).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<Employee>(e =>
+        {
+            e.HasKey(x => x.EmpId);
+            e.Property(x => x.EmpId).HasMaxLength(CodeLength);
+            e.Property(x => x.DeptCode).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<AssignEmployee>(e =>
+        {
+            e.Property(x => x.EmpId).HasMaxLength(CodeLength);
+            e.Property(x => x.AreaCode).HasMaxLength(CodeLength);
+            e.Property(x => x.WorkStationCode).HasMaxLength(CodeLength);
+        });
+
+        b.Entity<User>(e =>
+        {
+            e.Property(x => x.DeptCode).HasMaxLength(CodeLength);
+            e.Property(x => x.UserName).HasMaxLength(100);
+            e.Property(x => x.Status).HasMaxLength(20);
+            e.HasIndex(x => x.UserName).IsUnique();
+        });
 
         b.Entity<WorkStation>()
             .HasOne(w => w.Area)
@@ -61,7 +114,5 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(u => u.DeptCode)
             .OnDelete(DeleteBehavior.Restrict);
-
-        b.Entity<User>().HasIndex(u => u.UserName).IsUnique();
     }
 }

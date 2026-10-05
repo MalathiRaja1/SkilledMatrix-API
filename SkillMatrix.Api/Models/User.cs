@@ -10,4 +10,5 @@ public class User
     public string PasswordSalt { get; set; } = string.Empty;
     // Reversible (AES) copy so an admin can view the password in User Creation. Login uses the hash.
     public string? PasswordEncrypted { get; set; }
+    public string Status { get; set; } = "Active"; // "Active" or "Inactive"
 }

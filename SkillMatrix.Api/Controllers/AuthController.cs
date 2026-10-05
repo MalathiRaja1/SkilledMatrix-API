@@ -14,7 +14,7 @@ using SkillMatrix.Api.Services;
 
 namespace SkillMatrix.Api.Controllers;
 
-public record RegisterRequest(string DeptCode, string UserName, string Password, string ConfirmPassword);
+public record RegisterRequest(string DeptCode, string UserName, string Password, string ConfirmPassword, string Status = "Active");
 public record LoginRequest(string UserName, string Password);
 
 [ApiController]
@@ -49,7 +49,8 @@ public class AuthController : ControllerBase
             UserName = req.UserName,
             PasswordHash = Convert.ToBase64String(hash),
             PasswordSalt = Convert.ToBase64String(salt),
-            PasswordEncrypted = PasswordVault.Encrypt(req.Password, ViewKey)
+            PasswordEncrypted = PasswordVault.Encrypt(req.Password, ViewKey),
+            Status = string.IsNullOrWhiteSpace(req.Status) ? "Active" : req.Status
         };
 
         _db.Users.Add(user);
@@ -63,6 +64,9 @@ public class AuthController : ControllerBase
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.UserName == req.UserName);
         if (user is null) return Unauthorized(new { message = "Invalid username or password." });
+
+        if (user.Status != "Active")
+            return Unauthorized(new { message = "This account is inactive." });
 
         var salt = Convert.FromBase64String(user.PasswordSalt);
         var hash = HashPassword(req.Password, salt);
@@ -78,9 +82,17 @@ public class AuthController : ControllerBase
     [HttpGet("users")]
     public async Task<IActionResult> Users() =>
         Ok(await _db.Users
+            .Where(u => u.Status == "Active")
             .OrderBy(u => u.UserName)
-            .Select(u => new { u.Id, u.UserName, u.DeptCode, DeptName = u.Department!.DeptName, HasPassword = u.PasswordEncrypted != null })
+            .Select(u => new { u.Id, u.UserName, u.DeptCode, DeptName = u.Department!.DeptName, u.Status, HasPassword = u.PasswordEncrypted != null })
             .ToListAsync());
+
+    // Guarded the same way as Delete - used by the frontend to password-lock editing
+    // a record on any master screen before letting the edit form open.
+    [Authorize]
+    [RequireDeletePassword]
+    [HttpPost("verify-password")]
+    public IActionResult VerifyPassword() => Ok(new { ok = true });
 
     [Authorize]
     [RequireDeletePassword]
