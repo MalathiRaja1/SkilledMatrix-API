@@ -100,8 +100,9 @@ app.UseForwardedHeaders();
 // and it's useful for checking things directly against the live API.
 app.UseSwagger();
 app.UseSwaggerUI();
-app.UseStaticFiles(); // serves wwwroot/uploads/* (photo files) at /uploads/*
 app.UseCors("AllowFrontend");
+app.UseStaticFiles(); // serves wwwroot/uploads/* (photo files) at /uploads/*
+
 app.UseAuthentication();
 app.UseAuthorization();
 
